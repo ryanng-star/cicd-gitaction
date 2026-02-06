@@ -16,10 +16,3 @@ provider "google" {
   region  = "asia-southeast1"
 }
 
-# --- THE NEW SIMPLE RESOURCE ---
-# This is what Terraform will create automatically
-resource "google_storage_bucket" "auto_bucket" {
-  name          = "my-github-action-bucket-ryan-123"  # <--- Make this unique!
-  location      = "asia-southeast1"
-  force_destroy = true
-}
