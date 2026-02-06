@@ -1,0 +1,44 @@
+name: Deploy to Cloud Run
+
+on:
+  push:
+    branches: [ "main" ]
+
+env:
+  PROJECT_ID: my-rd-ce-horng-lee          # <<<< REPLACE THIS
+  REGION: asia-southeast1
+  REPO_NAME: my-app-repo               # Must match the Registry name you created manually
+  IMAGE_NAME: my-website
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Auth with Google
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+
+      - name: Configure Docker
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
+
+      - name: Build and Push Docker Image
+        run: |
+          IMAGE_URL=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          docker build -t $IMAGE_URL .
+          docker push $IMAGE_URL
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Apply
+        run: |
+          IMAGE_URL=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          terraform apply -auto-approve -var="docker_image=$IMAGE_URL"
