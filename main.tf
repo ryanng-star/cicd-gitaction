@@ -6,7 +6,7 @@ terraform {
     }
   }
   backend "gcs" {
-    bucket  = "ryangithubactionbucket"   # <--- Keep the one you made earlier
+    bucket  = "ryangitactionbucket"   # <--- Keep the one you made earlier
     prefix  = "terraform/state"
   }
 }
