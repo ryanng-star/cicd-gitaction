@@ -1,24 +1,24 @@
-name: Deploy to Cloud Run
+name: Manual Approval Terraform
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - main
 
 env:
-  PROJECT_ID: my-rd-ce-horng-lee          # <<<< REPLACE THIS
-  REGION: asia-southeast1
-  REPO_NAME: my-app-repo               # Must match the Registry name you created manually
-  IMAGE_NAME: my-website
+  PROJECT_ID: my-rd-ce-horng-lee      # <--- REPLACE THIS
+  # Secrets are available automatically, but env vars need to be set
 
 jobs:
-  deploy:
+  # JOB 1: The Preview
+  # This runs immediately to show you what will happen
+  terraform-plan:
     runs-on: ubuntu-latest
-    
     steps:
-      - name: Checkout
+      - name: Checkout Code
         uses: actions/checkout@v3
 
-      - name: Auth with Google
+      - name: Authenticate to Google
         uses: google-github-actions/auth@v1
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
@@ -26,19 +26,34 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
 
-      - name: Configure Docker
-        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
+      - name: Terraform Init
+        run: terraform init
 
-      - name: Build and Push Docker Image
-        run: |
-          IMAGE_URL=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-          docker build -t $IMAGE_URL .
-          docker push $IMAGE_URL
+      - name: Terraform Plan
+        run: terraform plan
+
+  # JOB 2: The Action
+  # This waits for your approval because of the 'environment' line
+  terraform-apply:
+    needs: terraform-plan             # Waits for Plan to finish
+    runs-on: ubuntu-latest
+    environment: production           # <--- THIS TRIGGERS THE MANUAL APPROVAL
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Authenticate to Google
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
 
       - name: Terraform Init
         run: terraform init
 
       - name: Terraform Apply
-        run: |
-          IMAGE_URL=${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-          terraform apply -auto-approve -var="docker_image=$IMAGE_URL"
+        # We use auto-approve here because YOU already approved the job manually
+        run: terraform apply -auto-approve
